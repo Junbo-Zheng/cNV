@@ -47,3 +47,23 @@ The mock nv data is as follows, it is just a demo, the actual data structure is 
 	"height":	120
 }
 ```
+
+## Build with Meson
+
+Install **meson** build dependencies
+
+``` shell
+sudo apt-get install python3 python3-pip python3-setuptools \
+python3-wheel ninja-build
+
+pip3 install meson
+```
+
+Build and Run
+
+``` shell
+mkdir builddir
+meson setup builddir
+meson compile -C builddir
+./builddir/cNV-meson
+```
