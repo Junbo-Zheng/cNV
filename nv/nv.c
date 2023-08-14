@@ -124,18 +124,22 @@ void nv_sync(char* key, char* value, uint8_t len)
             nv_log("nv sync, nv read fail\n");
             return;
         }
-    } else {
+    }
+
+    if (!json) {
+        nv_log("cJSON Parse fail: %s\n", cJSON_GetErrorPtr());
+
         cJSON* root = cJSON_CreateObject();
         char* str = cJSON_Print(root);
         json = cJSON_Parse(str);
 
         cJSON_free(str);
         cJSON_Delete(root);
-    }
 
-    if (!json) {
-        nv_log("cJSON Parse fail: %s\n", cJSON_GetErrorPtr());
-        return;
+        if (!json) {
+            nv_log("cJSON Parse fail again: %s\n", cJSON_GetErrorPtr());
+            return;
+        }
     }
 
 #if CONFIG_NV_DEBUG_MOCK_DATA
