@@ -17,6 +17,7 @@
 
 #include "nv.h"
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -99,6 +100,13 @@ bool nv_write(char* data)
     if (fp == NULL) {
         nv_log("nv write open fail\n");
         return false;
+    }
+
+    int fd = fileno(fp);
+    if (fd != -1) {
+        fsync(fd);
+    } else {
+        nv_log("fileno fail, errno is %d -> %s\n", errno, strerror(errno));
     }
 
     fprintf(fp, "%s", data);
