@@ -54,7 +54,7 @@ bool nv_read(char* data);
 
 nv_t* nv_get(void);
 
-int nv_str2hex(char* str, unsigned char* out, unsigned int* outlen);
+int nv_str2hex(char* str, uint8_t* hex, uint32_t hex_len);
 
 #if CONFIG_NV_DEBUG_MOCK_DATA
 void nv_debug(void);
