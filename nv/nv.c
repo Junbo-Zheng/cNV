@@ -49,30 +49,15 @@ void nv_debug(void)
 }
 #endif
 
-int nv_str2hex(char* str, unsigned char* out, unsigned int* outlen)
+int nv_str2hex(char* str, uint8_t* hex, uint32_t hex_len)
 {
-    char* p = str;
-    char high = 0, low = 0;
-    int tmplen = strlen(p), cnt = 0;
-    while (cnt < (tmplen / 2)) {
-        high = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7
-                                                            : *p - 48;
-        low = (*(++p) > '9' && ((*p <= 'F') || (*p <= 'f'))) ? *(p)-48 - 7
-                                                             : *(p)-48;
-        out[cnt] = ((high & 0x0f) << 4 | (low & 0x0f));
-        p++;
-        cnt++;
+    for (int i = 0; i < hex_len; i++) {
+        int number;
+        sscanf(str + i * 2, "%02x", &number);
+        hex[i] = number;
     }
 
-    if (tmplen % 2 != 0) {
-        out[cnt] = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7
-                                                                : *p - 48;
-    }
-
-    if (outlen != NULL) {
-        *outlen = tmplen / 2 + tmplen % 2;
-    }
-    return tmplen / 2 + tmplen % 2;
+    return 0;
 }
 
 bool nv_read(char* data)
