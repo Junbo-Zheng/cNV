@@ -18,47 +18,93 @@
 #ifndef _NV_H_
 #define _NV_H_
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
-#define NV_PATH       "./nv.json"
-
-#if CONFIG_NV_DEBUG_MOCK_DATA
-#define NV_KEY_NAME   "name"
-#define NV_KEY_SEX    "sex"
-#define NV_KEY_AGE    "age"
-#define NV_KEY_HEIGHT "height"
+#if CONFIG_NV_DEBUG_LOG
+#define nv_log(fmt, args...)                               \
+    printf("[%s : %d]: " fmt, __func__, __LINE__, ##args); \
+    fflush(stdout);
+#else
+#define nv_log(...)
 #endif
-
-typedef struct {
-#if CONFIG_NV_DEBUG_MOCK_DATA
-    uint8_t name[32];
-    uint8_t sex[32];
-    uint8_t age;
-    uint8_t height;
-#endif
-} nv_t;
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-void nv_init(void);
+typedef enum {
+    NV_DATA_U8 = 0,          ///< U8
+    NV_DATA_S8,              ///< S8
+    NV_DATA_U16,             ///< U16
+    NV_DATA_S16,             ///< S16
+    NV_DATA_U32,             ///< U32
+    NV_DATA_S32,             ///< S32
+    NV_DATA_U64,             ///< U64
+    NV_DATA_S64,             ///< S64
+    NV_DATA_FLOAT,           ///< float
+    NV_DATA_DOUBLE,          ///< double
+    NV_DATA_STR,             ///< only string
+    NV_DATA_STRING_ARRAY,    ///< string array
+    NV_DATA_INT_ARRAY,       ///< int array
+    NV_DATA_FLOAT_ARRAY,     ///< float array
+    NV_DATA_DOUBLE_ARRAY,    ///< double array
+} nv_data_type_t;
 
-void nv_sync(char* key, char* value, uint8_t len);
+/**
+ * nv_init
+ * @param file nv file path
+ * @param data nv json format data from file
+ */
+void nv_init(const char* file, void* data);
 
-bool nv_write(char* data);
+/**
+ * nv_write to file
+ * @param file nv file path
+ * @param data data buffer
+ * @return     boolean
+ */
+bool nv_write(const char* file, void* data);
 
-bool nv_read(char* data);
+/**
+ * nv_read from file
+ * @param file nv file path
+ * @param data data buffer
+ * @return     boolean
+ */
+bool nv_read(const char* file, void* data);
 
-nv_t* nv_get(void);
+/**
+ * nv_sync to file
+ * @param file  nv file path
+ * @param key   nv key
+ * @param value data buffer
+ * @param len   data buffer length
+ * @param type  data type
+ */
+void nv_sync(const char* file, char* key, void* value, uint32_t len,
+             nv_data_type_t type);
 
-int nv_str2hex(char* str, uint8_t* hex, uint32_t hex_len);
+/**
+ * nv_get
+ * @param file  nv file path
+ * @param key   nv key
+ * @param value data buffer
+ * @param len   data buffer length
+ * @param type  data type
+ * @return      boolean
+ */
+bool nv_get(const char* file, char* key, char* value, uint32_t len,
+            nv_data_type_t type);
 
-#if CONFIG_NV_DEBUG_MOCK_DATA
-void nv_debug(void);
-#endif
+/**
+ * nv_delete
+ * @param file nv file path
+ * @param key  nv key
+ * @return     boolean
+ */
+bool nv_delete(const char* file, char* key);
 
 #ifdef __cplusplus
 }
