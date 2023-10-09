@@ -18,72 +18,52 @@
 #include "nv.h"
 
 #include <errno.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "cJSON.h"
 
-#if CONFIG_NV_DEBUG_LOG
-#define nv_log(...)      \
-    printf(__VA_ARGS__); \
-    fflush(stdout);
-#else
-#define nv_log(...)
-#endif
+#ifndef CONFIG_NV_DATA_BUFFER_SIZE
+#define CONFIG_NV_DATA_BUFFER_SIZE 512    // TODO, 1024 Bytes enough?
+#endif /* CONFIG_NV_DATA_BUFFER_SIZE */
 
-static char nv_data[512] = { 0 };
-
-static nv_t nv;
-
-#define NV_KEY_CHECK(src, des) (strncmp(src, des, strlen(des)) == 0)
-
-#if CONFIG_NV_DEBUG_MOCK_DATA
-void nv_debug(void)
+/**
+ * nv_read from file
+ * @param file nv file path
+ * @param data data buffer
+ * @return     boolean
+ */
+bool nv_read(const char* file, void* data)
 {
-    nv_log("nv.name   %s\n", nv_get()->name);
-    nv_log("nv.sex    %s\n", nv_get()->sex);
-    nv_log("nv.age    %d\n", nv_get()->age);
-    nv_log("nv.height %d\n", nv_get()->height);
-}
-#endif
-
-int nv_str2hex(char* str, uint8_t* hex, uint32_t hex_len)
-{
-    for (int i = 0; i < hex_len; i++) {
-        int number;
-        sscanf(str + i * 2, "%02x", &number);
-        hex[i] = number;
-    }
-
-    return 0;
-}
-
-bool nv_read(char* data)
-{
-    FILE* fp = fopen(NV_PATH, "r");
+    FILE* fp = fopen(file, "r");
     if (fp == NULL) {
-        nv_log("nv read open fail\n");
+        nv_log("nv read open %s fail, errno %d %s\n", file, errno,
+               strerror(errno));
         return false;
     }
 
     fseek(fp, 0, SEEK_END);
-    long file_size = ftell(fp);
+    long size = ftell(fp);
     rewind(fp);
 
-    fread(data, 1, file_size, fp);
+    fread(data, 1, size, fp);
     fclose(fp);
 
-    nv_log("nv read success\n");
     return true;
 }
 
-bool nv_write(char* data)
+/**
+ * nv_write to file
+ * @param file nv file path
+ * @param data data buffer
+ * @return     boolean
+ */
+bool nv_write(const char* file, void* data)
 {
-    FILE* fp = fopen(NV_PATH, "w");
+    FILE* fp = fopen(file, "w");
     if (fp == NULL) {
-        nv_log("nv write open fail\n");
+        nv_log("nv write open %s fail, errno %d %s\n", file, errno,
+               strerror(errno));
         return false;
     }
 
@@ -91,35 +71,41 @@ bool nv_write(char* data)
     if (fd != -1) {
         fsync(fd);
     } else {
-        nv_log("fileno fail, errno is %d -> %s\n", errno, strerror(errno));
+        nv_log("fileno fail, errno %d %s\n", errno, strerror(errno));
     }
 
-    fprintf(fp, "%s", data);
+    fprintf(fp, "%s", (char*)data);
     fclose(fp);
 
-    nv_log("nv write success\n");
     return true;
 }
 
-nv_t* nv_get(void)
-{
-    return &nv;
-}
-
-void nv_sync(char* key, char* value, uint8_t len)
+/**
+ * nv_sync to file
+ * @param file  nv file path
+ * @param key   nv key
+ * @param value data buffer
+ * @param len   data buffer length
+ * @param type  data type
+ */
+void nv_sync(const char* file, char* key, void* value, uint32_t len,
+             nv_data_type_t type)
 {
     cJSON* json = NULL;
 
-    if (access(NV_PATH, F_OK) == 0) {
-        if (nv_read(nv_data)) {
-            json = cJSON_Parse(nv_data);
+    uint8_t nv_buffer[CONFIG_NV_DATA_BUFFER_SIZE] = { 0 };
+
+    if (access(file, F_OK) == 0) {
+        if (nv_read(file, nv_buffer)) {
+            json = cJSON_Parse(nv_buffer);
         } else {
-            nv_log("nv sync, nv read fail\n");
+            nv_log("nv sync, nv read %s fail, error %d %s\n", file, errno,
+                   strerror(errno));
             return;
         }
     }
 
-    if (!json) {
+    if (json == NULL) {
         nv_log("cJSON Parse fail: %s\n", cJSON_GetErrorPtr());
 
         cJSON* root = cJSON_CreateObject();
@@ -135,115 +121,281 @@ void nv_sync(char* key, char* value, uint8_t len)
         }
     }
 
-#if CONFIG_NV_DEBUG_MOCK_DATA
-    cJSON* tmp = cJSON_GetObjectItem(json, key);
-    if (NV_KEY_CHECK(key, NV_KEY_NAME)) {
-        memset(nv.name, 0, sizeof(nv.name));
-        memcpy(nv.name, value, len);
-
-        if (tmp && tmp->valuestring) {
-            nv_log("replace name from %s to %s\n", tmp->valuestring, nv.name);
-            cJSON_SetValuestring(tmp, (const char*)nv.name);
-        } else {
-            nv_log("%s not found, add it\n", key);
-            cJSON_AddStringToObject(json, key, value);
-        }
-    } else if (NV_KEY_CHECK(key, NV_KEY_SEX)) {
-        memset(nv.sex, 0, sizeof(nv.sex));
-        memcpy(nv.sex, value, len);
-
-        if (tmp && tmp->valuestring) {
-            nv_log("replace sex from %s to %s\n", tmp->valuestring, nv.sex);
-            cJSON_SetValuestring(tmp, (const char*)nv.sex);
-        } else {
-            nv_log("%s not found, add it\n", key);
-            cJSON_AddStringToObject(json, key, value);
-        }
-    } else if (NV_KEY_CHECK(key, NV_KEY_HEIGHT)) {
-        nv.height = *value;
-
-        if (tmp) {
-            nv_log("replace height from %d to %d\n", tmp->valueint, nv.height);
-            cJSON_SetNumberHelper(tmp, nv.height);
-        } else {
-            nv_log("%s not found, add it\n", key);
-            cJSON_AddNumberToObject(json, key, nv.height);
-        }
-    } else if (NV_KEY_CHECK(key, NV_KEY_AGE)) {
-        nv.age = *value;
-
-        if (tmp) {
-            nv_log("replace age from %d to %d\n", tmp->valueint, nv.age);
-            cJSON_SetNumberHelper(tmp, nv.age);
-        } else {
-            nv_log("%s not found, add it\n", key);
-            cJSON_AddNumberToObject(json, key, nv.age);
-        }
-    } else {
-        nv_log("sync check %s key fail\n", key);
-        goto err;
+    cJSON* key_item = cJSON_GetObjectItem(json, key);
+    if (key_item == NULL) {
+        nv_log("cJSON_GetObjectItem %s key %s fail: %s\n", key, file,
+               cJSON_GetErrorPtr());
     }
-#endif
+
+    switch (type) {
+    case NV_DATA_U8:
+    case NV_DATA_S8:
+        if (key_item) {
+            if (type == NV_DATA_U8) {
+                cJSON_SetNumberHelper(key_item, *(uint8_t*)value);
+            } else {
+                cJSON_SetNumberHelper(key_item, *(int8_t*)value);
+            }
+        } else {
+            if (type == NV_DATA_U8) {
+                cJSON_AddNumberToObject(json, key, *(uint8_t*)value);
+            } else {
+                cJSON_AddNumberToObject(json, key, *(int8_t*)value);
+            }
+        }
+        break;
+    case NV_DATA_U16:
+    case NV_DATA_S16:
+        if (key_item) {
+            if (type == NV_DATA_U16) {
+                cJSON_SetNumberHelper(key_item, *(uint16_t*)value);
+            } else {
+                cJSON_SetNumberHelper(key_item, *(uint16_t*)value);
+            }
+        } else {
+            if (type == NV_DATA_U16) {
+                cJSON_AddNumberToObject(json, key, *(uint16_t*)value);
+            } else {
+                cJSON_AddNumberToObject(json, key, *(int16_t*)value);
+            }
+        }
+        break;
+    case NV_DATA_U32:
+    case NV_DATA_S32:
+        if (key_item) {
+            if (type == NV_DATA_U32) {
+                cJSON_SetNumberHelper(key_item, *(uint32_t*)value);
+            } else {
+                cJSON_SetNumberHelper(key_item, *(int32_t*)value);
+            }
+        } else {
+            if (type == NV_DATA_U32) {
+                cJSON_AddNumberToObject(json, key, *(uint32_t*)value);
+            } else {
+                cJSON_AddNumberToObject(json, key, *(int32_t*)value);
+            }
+        }
+        break;
+    case NV_DATA_U64:
+    case NV_DATA_S64:
+        if (key_item) {
+            if (type == NV_DATA_U64) {
+                cJSON_SetNumberHelper(key_item, *(uint64_t*)value);
+            } else {
+                cJSON_SetNumberHelper(key_item, *(int64_t*)value);
+            }
+        } else {
+            if (type == NV_DATA_U64) {
+                cJSON_AddNumberToObject(json, key, *(uint64_t*)value);
+            } else {
+                cJSON_AddNumberToObject(json, key, *(int64_t*)value);
+            }
+        }
+        break;
+    case NV_DATA_FLOAT:
+    case NV_DATA_DOUBLE:
+        if (key_item) {
+            if (type == NV_DATA_FLOAT) {
+                cJSON_SetNumberHelper(key_item, *(float*)value);
+            } else {
+                cJSON_SetNumberHelper(key_item, *(double*)value);
+            }
+        } else {
+            if (type == NV_DATA_FLOAT) {
+                cJSON_AddNumberToObject(json, key, *(float*)value);
+            } else {
+                cJSON_AddNumberToObject(json, key, *(double*)value);
+            }
+        }
+        break;
+    case NV_DATA_STR:
+        if (key_item) {
+            cJSON_SetValuestring(key_item, value);
+        } else {
+            cJSON_AddStringToObject(json, key, value);
+        }
+        break;
+    case NV_DATA_STRING_ARRAY:
+    case NV_DATA_INT_ARRAY:
+    case NV_DATA_FLOAT_ARRAY:
+    case NV_DATA_DOUBLE_ARRAY: {
+        if (key_item) {
+            cJSON* tmp = cJSON_DetachItemFromObject(json, key);
+            cJSON_Delete(tmp);
+        }
+
+        if (type == NV_DATA_STRING_ARRAY) {
+            cJSON_AddItemToObject(
+                json, key, cJSON_CreateStringArray((const char**)value, len));
+        } else if (type == NV_DATA_INT_ARRAY) {
+            cJSON_AddItemToObject(json, key,
+                                  cJSON_CreateIntArray((const int*)value, len));
+        } else if (type == NV_DATA_FLOAT_ARRAY) {
+            cJSON_AddItemToObject(
+                json, key, cJSON_CreateFloatArray((const float*)value, len));
+        } else if (type == NV_DATA_DOUBLE_ARRAY) {
+            cJSON_AddItemToObject(
+                json, key, cJSON_CreateDoubleArray((const double*)value, len));
+        }
+        break;
+    }
+    default:
+        nv_log("unknown %d type\n", type);
+        break;
+    }
 
     char* p_json = cJSON_Print(json);
-    if (nv_write(p_json) == false) {
-        nv_log("nv write fail\n");
+    if (nv_write(file, p_json) == false) {
+        nv_log("nv write %s fail, errno %d %s\n", file, errno, strerror(errno));
     }
     cJSON_free(p_json);
-err:
+
     cJSON_Delete(json);
 }
 
-void nv_init(void)
+/**
+ * nv_get from file
+ * @param file  nv file path
+ * @param key   nv key
+ * @param value data buffer
+ * @param len   data buffer length
+ * @param type  data type
+ * @return      boolean
+ */
+bool nv_get(const char* file, char* key, char* value, uint32_t len,
+            nv_data_type_t type)
 {
-    nv_log("nv init\n");
-
-    memset(&nv, 0, sizeof(nv_t));
-
-    if (access(NV_PATH, F_OK) != 0) {
-        nv_log("%s not exist\n", NV_PATH);
-        return;
+    uint8_t nv_buffer[CONFIG_NV_DATA_BUFFER_SIZE] = { 0 };
+    if (nv_read(file, nv_buffer) == false) {
+        return false;
     }
 
-    if (nv_read(nv_data) == false) {
-        return;
+    cJSON* json = cJSON_Parse(nv_buffer);
+    if (json == NULL) {
+        nv_log("cJSON_Parse fail %s\n", cJSON_GetErrorPtr());
+        return false;
     }
 
-    cJSON* json = cJSON_Parse(nv_data);
-    if (!json) {
-        nv_log("cJSON Parse %s\n", cJSON_GetErrorPtr());
-        return;
+    cJSON* key_item = cJSON_GetObjectItem(json, key);
+    if (key_item == NULL) {
+        cJSON_Delete(json);
+        return false;
     }
 
-#if CONFIG_NV_DEBUG_MOCK_DATA
-    cJSON* tmp = cJSON_GetObjectItem(json, NV_KEY_NAME);
-    if (tmp && tmp->valuestring) {
-        memcpy(nv.name, tmp->valuestring, strlen(tmp->valuestring));
-    } else {
-        nv_log("%s not found\n", NV_KEY_NAME);
+    switch (type) {
+    case NV_DATA_U8:
+        *(uint8_t *)value = key_item->valueint;
+        break;
+    case NV_DATA_S8:
+        *(int8_t *)value = key_item->valueint;
+        break;
+    case NV_DATA_U16:
+        *(uint16_t *)value = key_item->valueint;
+        break;
+    case NV_DATA_S16:
+        *(int16_t *)value = key_item->valueint;
+        break;
+    case NV_DATA_U32:
+        *(uint32_t *)value = key_item->valueint;
+        break;
+    case NV_DATA_S32:
+        *(int32_t *)value = key_item->valueint;
+        break;
+    case NV_DATA_U64:
+        *(uint64_t *)value = key_item->valuedouble;
+        break;
+    case NV_DATA_S64:
+        *(int64_t *)value = key_item->valuedouble;
+        break;
+    case NV_DATA_FLOAT:
+        *(float *)value = key_item->valuedouble;
+        break;
+    case NV_DATA_DOUBLE:
+        *(double *)value = key_item->valuedouble;
+        break;
+    case NV_DATA_STR:
+        strcpy((char*)value, key_item->valuestring);
+        break;
+    case NV_DATA_STRING_ARRAY:
+    case NV_DATA_INT_ARRAY:
+    case NV_DATA_FLOAT_ARRAY:
+    case NV_DATA_DOUBLE_ARRAY: {
+        int size = cJSON_GetArraySize(key_item);
+        for (uint32_t i = 0; i < size; i++) {
+            cJSON* array_json = cJSON_GetArrayItem(key_item, i);
+            if (array_json) {
+                if (type == NV_DATA_STRING_ARRAY) {
+                    memcpy(((char**)value)[i], array_json->valuestring,
+                           strlen(array_json->valuestring) + 1);
+                } else if (type == NV_DATA_INT_ARRAY) {
+                    *((int32_t*)value + i) = array_json->valueint;
+                } else if (type == NV_DATA_FLOAT_ARRAY) {
+                    *((float*)value + i) = array_json->valuedouble;
+                } else if (type == NV_DATA_DOUBLE_ARRAY) {
+                    *((double*)value + i) = array_json->valuedouble;
+                }
+            }
+        }
+        break;
     }
-
-    tmp = cJSON_GetObjectItem(json, NV_KEY_SEX);
-    if (tmp && tmp->valuestring) {
-        memcpy(nv.sex, tmp->valuestring, strlen(tmp->valuestring));
-    } else {
-        nv_log("%s not found\n", NV_KEY_SEX);
+    default:
+        nv_log("unknown %d type\n", type);
+        break;
     }
-
-    tmp = cJSON_GetObjectItem(json, NV_KEY_AGE);
-    if (tmp && tmp->valueint) {
-        nv.age = tmp->valueint;
-    } else {
-        nv_log("%s not found\n", NV_KEY_AGE);
-    }
-
-    tmp = cJSON_GetObjectItem(json, NV_KEY_HEIGHT);
-    if (tmp && tmp->valueint) {
-        nv.height = tmp->valueint;
-    } else {
-        nv_log("%s not found\n", NV_KEY_HEIGHT);
-    }
-#endif
 
     cJSON_Delete(json);
+    return true;
+}
+
+/**
+ * nv_delete
+ * @param file nv file path
+ * @param key  nv key
+ * @return     boolean
+ */
+bool nv_delete(const char* file, char* key)
+{
+    uint8_t nv_buffer[CONFIG_NV_DATA_BUFFER_SIZE] = { 0 };
+    if (nv_read(file, nv_buffer) == false) {
+        return false;
+    }
+
+    cJSON* json = cJSON_Parse(nv_buffer);
+    if (json == NULL) {
+        nv_log("cJSON_Parse fail %s\n", cJSON_GetErrorPtr());
+        return false;
+    }
+
+    cJSON_DeleteItemFromObject(json, key);
+
+    char* str = cJSON_Print(json);
+    if (str) {
+        if (nv_write(file, str) == false) {
+            nv_log("nv delete write fail, error %d %s\n", errno,
+                   strerror(errno));
+        }
+        cJSON_free(str);
+    }
+
+    cJSON_Delete(json);
+    return true;
+}
+
+/**
+ * nv_init
+ * @param file nv file path
+ * @param data nv json format data from file
+ */
+void nv_init(const char* file, void* data)
+{
+    if (access(file, F_OK) != 0) {
+        nv_log("%s not exist, errno %d %s\n", file, errno, strerror(errno));
+        return;
+    }
+
+    if (nv_read(file, (char*)data) == false) {
+        return;
+    }
+
+    nv_log("nv init, file %s\n", file);
 }

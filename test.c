@@ -15,12 +15,44 @@
  *
  */
 
-#include "nv.h"
-
+#include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "cJSON.h"
+
+#include "nv.h"
+
+#define NV_KEY_NAME         "name"
+#define NV_KEY_SEX          "sex"
+#define NV_KEY_AGE          "age"
+#define NV_KEY_HEIGHT       "height"
+#define NV_KEY_ID           "id"
+#define NV_KEY_HIGH         "high"
+#define NV_KEY_TEMP_FLOAT    "temp_float"
+#define NV_KEY_TEMP_DOUBLE   "temp_double"
+#define NV_KEY_SCORE_STR    "score_str"
+#define NV_KEY_SCORE_INT    "score_int"
+#define NV_KEY_SCORE_FLOAT  "score_float"
+#define NV_KEY_SCORE_DOUBLE "score_double"
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#endif
+
+#ifndef CONFIG_NV_PATH
+#define CONFIG_NV_PATH "./nv.json"
+#endif
+
+typedef struct {
+    uint8_t name[32];
+    uint8_t age;
+    uint8_t height;
+} nv_t;
+
+static nv_t nv = { 0 };
 
 static void cjson_create_item(void)
 {
@@ -34,7 +66,7 @@ static void cjson_create_item(void)
 #endif
 
     char* json_str = cJSON_Print(root);
-    nv_write(json_str);
+    nv_write(CONFIG_NV_PATH, json_str);
 
     cJSON_free(json_str);
     cJSON_Delete(root);
@@ -206,23 +238,119 @@ int main(void)
     // 释放内存
     cJSON_Delete(json);
 #endif
-
-    nv_init();
+    uint8_t nv_buffer[512] = { 0 };
+    nv_init(CONFIG_NV_PATH, nv_buffer);
 
 #if CONFIG_NV_DEBUG_MOCK_DATA
-    nv_debug();
+    cJSON* json = NULL;
 
-    nv_sync(NV_KEY_NAME, "xiaomi", strlen("xiaomi"));
-    nv_sync(NV_KEY_SEX, "male", strlen("male"));
-    nv_sync("UNUSED", "unused", strlen("unused"));
+    if (access(CONFIG_NV_PATH, F_OK) == 0) {
+        json = cJSON_Parse((const char*)nv_buffer);
+        if (!json) {
+            nv_log("cJSON Parse fail %s\n", cJSON_GetErrorPtr());
+        }
+    }
 
-    char age = 30;
-    nv_sync(NV_KEY_AGE, &age, sizeof(age));
+    cJSON* tmp = cJSON_GetObjectItem(json, NV_KEY_NAME);
+    if (tmp && tmp->valuestring) {
+         memcpy(nv.name, tmp->valuestring, strlen(tmp->valuestring));
+    } else {
+        nv_log("%s not found\n", NV_KEY_NAME);
+    }
 
-    char height = 120;
-    nv_sync(NV_KEY_HEIGHT, &height, sizeof(height));
+    tmp = cJSON_GetObjectItem(json, NV_KEY_AGE);
+    if (tmp && tmp->valueint) {
+         nv.age = tmp->valueint;
+    } else {
+        nv_log("%s not found\n", NV_KEY_AGE);
+    }
 
-    nv_debug();
+    tmp = cJSON_GetObjectItem(json, NV_KEY_HEIGHT);
+    if (tmp && tmp->valueint) {
+         nv.height = tmp->valueint;
+    } else {
+        nv_log("%s not found\n", NV_KEY_HEIGHT);
+    }
+
+    cJSON_Delete(json);
+
+    uint8_t age = 30;
+    uint16_t height = 175;
+    uint32_t high = 140;
+    uint64_t id = 88;
+    char name[] = { "Bob" };
+    float temp_float = 36.1;
+    double temp_double = 36.2;
+
+    char* score_str[] = { "100", "150" };
+    int score_int[] = { 100, 150 };
+    float score_float[] = { 1.1, 1.2 };
+    double score_double[] = { 2.1, 2.2 };
+
+    /* clang-format off */
+    nv_sync(CONFIG_NV_PATH, NV_KEY_AGE,    (char *)&age,    sizeof(age),    NV_DATA_U8);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_HEIGHT, (char *)&height, sizeof(height), NV_DATA_U16);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_HIGH,   (char *)&high,   sizeof(high),   NV_DATA_U32);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_ID,     (char *)&id,     sizeof(id),     NV_DATA_U64);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_NAME,   (char *)name,    strlen(name),   NV_DATA_STR);
+
+    nv_sync(CONFIG_NV_PATH, NV_KEY_TEMP_FLOAT,  (char *)&temp_float,  sizeof(temp_float),  NV_DATA_FLOAT);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_TEMP_DOUBLE, (char *)&temp_double, sizeof(temp_double), NV_DATA_DOUBLE);
+
+    nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_STR,    (char *)score_str,    ARRAY_SIZE(score_str),    NV_DATA_STRING_ARRAY);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_INT,    (char *)score_int,    ARRAY_SIZE(score_int),    NV_DATA_INT_ARRAY);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_FLOAT,  (char *)score_float,  ARRAY_SIZE(score_float),  NV_DATA_FLOAT_ARRAY);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_DOUBLE, (char *)score_double, ARRAY_SIZE(score_double), NV_DATA_DOUBLE_ARRAY);
+    /* clang-format on */
+
+//    nv_delete(CONFIG_NV_PATH, NV_KEY_NAME);
+
+    memset(score_str, 0, ARRAY_SIZE(score_str));
+    memset(score_int, 0, ARRAY_SIZE(score_int));
+    memset(score_float, 0, ARRAY_SIZE(score_float));
+    memset(score_double, 0, ARRAY_SIZE(score_double));
+
+    /* clang-format off */
+    nv_get(CONFIG_NV_PATH, NV_KEY_AGE,    (char*)&age,    sizeof(age),    NV_DATA_U8);
+    nv_get(CONFIG_NV_PATH, NV_KEY_HEIGHT, (char*)&height, sizeof(height), NV_DATA_U16);
+    nv_get(CONFIG_NV_PATH, NV_KEY_HIGH,   (char*)&high,   sizeof(high),   NV_DATA_U32);
+    nv_get(CONFIG_NV_PATH, NV_KEY_ID,     (char*)&id,     sizeof(id),     NV_DATA_U64);
+    nv_get(CONFIG_NV_PATH, NV_KEY_NAME,   (char*)name,    strlen(name),   NV_DATA_STR);
+
+    nv_get(CONFIG_NV_PATH, NV_KEY_TEMP_FLOAT,  (char *)&temp_float,  sizeof(temp_float),  NV_DATA_FLOAT);
+    nv_get(CONFIG_NV_PATH, NV_KEY_TEMP_DOUBLE, (char *)&temp_double, sizeof(temp_double), NV_DATA_DOUBLE);
+    /* clang-format on */
+
+    nv_log("age         = %d\n", age);
+    nv_log("height      = %d\n", height);
+    nv_log("high        = %" PRIu32 "\n", high);
+    nv_log("id          = %" PRIu64 "\n", id);
+    nv_log("name        = %s\n", name);
+    nv_log("temp_float  = %f\n", temp_float);
+    nv_log("temp_double = %f\n", temp_double);
+
+    char* score_buf[16] = {0};
+    for (int i = 0; i < ARRAY_SIZE(score_buf); i++) {
+        score_buf[i] = calloc(1, 16 * sizeof(char));
+    }
+
+    /* clang-format off */
+    nv_get(CONFIG_NV_PATH, NV_KEY_SCORE_STR,    (char*)score_buf,    ARRAY_SIZE(score_buf),    NV_DATA_STRING_ARRAY);
+    nv_get(CONFIG_NV_PATH, NV_KEY_SCORE_INT,    (char*)score_int,    ARRAY_SIZE(score_int),    NV_DATA_INT_ARRAY);
+    nv_get(CONFIG_NV_PATH, NV_KEY_SCORE_FLOAT,  (char*)score_float,  ARRAY_SIZE(score_float),  NV_DATA_FLOAT_ARRAY);
+    nv_get(CONFIG_NV_PATH, NV_KEY_SCORE_DOUBLE, (char*)score_double, ARRAY_SIZE(score_double), NV_DATA_DOUBLE_ARRAY);
+    /* clang-format on */
+
+    nv_log("score buf    \"%s\" \"%s\"\n", score_buf[0], score_buf[1]);
+    nv_log("score int    %d %d\n", score_int[0], score_int[1]);
+    nv_log("score float  %f %f\n", score_float[0], score_float[1]);
+    nv_log("score double %f %f\n", score_double[0], score_double[1]);
+
+    for (int i = 0; i < ARRAY_SIZE(score_buf); i++) {
+        if (score_buf[i]) {
+            free(score_buf[i]);
+        }
+    }
 #endif
 
     return 0;
