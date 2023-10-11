@@ -50,6 +50,8 @@ typedef enum {
     NV_DATA_INT_ARRAY,       ///< int array
     NV_DATA_FLOAT_ARRAY,     ///< float array
     NV_DATA_DOUBLE_ARRAY,    ///< double array
+    NV_DATA_IP,              ///< IP Address  (uint32_t array)
+    NV_DATA_MAC              ///< MAC Address (uint32_t array)
 } nv_data_type_t;
 
 /**
