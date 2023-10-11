@@ -64,17 +64,19 @@ Refer to [test.c](./test.c) source file for examples.
 
 ```json
 {
-  "age":	30,
-  "height":	175,
-  "high":	140,
-  "id":	88,
-  "name":	"Bob",
-  "temp_float":	36.0999984741211,
-  "temp_double":	36.2,
-  "score_str":	["100", "150"],
-  "score_int":	[100, 150],
-  "score_float":	[1.1000000238418579, 1.2000000476837158],
-  "score_double":	[2.1, 2.2]
+  "age":  30,
+  "height":   175,
+  "high": 140,
+  "id":   88,
+  "name": "Bob",
+  "temp_float":   36.0999984741211,
+  "temp_double":  36.2,
+  "IP":   "192.168.0.1",
+  "MAC":  "11-22-33-44-55-66",
+  "score_str":    ["100", "150"],
+  "score_int":    [100, 150],
+  "score_float":  [1.1000000238418579, 1.2000000476837158],
+  "score_double": [2.1, 2.2]
 }
 ```
 

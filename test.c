@@ -31,12 +31,14 @@
 #define NV_KEY_HEIGHT       "height"
 #define NV_KEY_ID           "id"
 #define NV_KEY_HIGH         "high"
-#define NV_KEY_TEMP_FLOAT    "temp_float"
-#define NV_KEY_TEMP_DOUBLE   "temp_double"
+#define NV_KEY_TEMP_FLOAT   "temp_float"
+#define NV_KEY_TEMP_DOUBLE  "temp_double"
 #define NV_KEY_SCORE_STR    "score_str"
 #define NV_KEY_SCORE_INT    "score_int"
 #define NV_KEY_SCORE_FLOAT  "score_float"
 #define NV_KEY_SCORE_DOUBLE "score_double"
+#define NV_KEY_IP           "IP"
+#define NV_KEY_MAC          "MAC"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
@@ -282,6 +284,9 @@ int main(void)
     float temp_float = 36.1;
     double temp_double = 36.2;
 
+    uint32_t ip[]  = { 192, 168, 0, 1 };
+    uint32_t mac[] = { 11, 22, 33, 44, 55, 66 };
+
     char* score_str[] = { "100", "150" };
     int score_int[] = { 100, 150 };
     float score_float[] = { 1.1, 1.2 };
@@ -301,6 +306,9 @@ int main(void)
     nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_INT,    (char *)score_int,    ARRAY_SIZE(score_int),    NV_DATA_INT_ARRAY);
     nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_FLOAT,  (char *)score_float,  ARRAY_SIZE(score_float),  NV_DATA_FLOAT_ARRAY);
     nv_sync(CONFIG_NV_PATH, NV_KEY_SCORE_DOUBLE, (char *)score_double, ARRAY_SIZE(score_double), NV_DATA_DOUBLE_ARRAY);
+
+    nv_sync(CONFIG_NV_PATH, NV_KEY_IP,  (char *)ip,  ARRAY_SIZE(ip),  NV_DATA_IP);
+    nv_sync(CONFIG_NV_PATH, NV_KEY_MAC, (char *)mac, ARRAY_SIZE(mac), NV_DATA_MAC);
     /* clang-format on */
 
 //    nv_delete(CONFIG_NV_PATH, NV_KEY_NAME);
@@ -331,7 +339,7 @@ int main(void)
 
     char* score_buf[16] = {0};
     for (int i = 0; i < ARRAY_SIZE(score_buf); i++) {
-        score_buf[i] = calloc(1, 16 * sizeof(char));
+        score_buf[i] = calloc(1, ARRAY_SIZE(score_buf) * sizeof(char));
     }
 
     /* clang-format off */
@@ -351,6 +359,18 @@ int main(void)
             free(score_buf[i]);
         }
     }
+
+    memset(ip,  0, ARRAY_SIZE(ip));
+    memset(mac, 0, ARRAY_SIZE(mac));
+
+    /* clang-format off */
+    nv_get(CONFIG_NV_PATH, NV_KEY_IP,  (char*)ip,  ARRAY_SIZE(ip),  NV_DATA_IP);
+    nv_get(CONFIG_NV_PATH, NV_KEY_MAC, (char*)mac, ARRAY_SIZE(mac), NV_DATA_MAC);
+    /* clang-format on */
+
+    nv_log("ip : %d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
+    nv_log("mac: %d-%d-%d-%d-%d-%d\n", mac[0], mac[1], mac[2], mac[3], mac[4],
+           mac[5]);
 #endif
 
     return 0;

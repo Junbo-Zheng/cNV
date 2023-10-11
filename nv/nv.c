@@ -239,6 +239,30 @@ void nv_sync(const char* file, char* key, void* value, uint32_t len,
         }
         break;
     }
+    case NV_DATA_IP:
+        memset(nv_buffer, 0, sizeof(nv_buffer));
+        sprintf(nv_buffer, "%d.%d.%d.%d", *((uint32_t *)value),
+                *((uint32_t *)value + 1), *((uint32_t *)value + 2),
+                *((uint32_t *)value + 3));
+        if (key_item) {
+            cJSON_SetValuestring(key_item, nv_buffer);
+        } else {
+            cJSON_AddStringToObject(json, key, nv_buffer);
+        }
+        break;
+    case NV_DATA_MAC:
+        memset(nv_buffer, 0, sizeof(nv_buffer));
+        sprintf(nv_buffer, "%d-%d-%d-%d-%d-%d", *((uint32_t *)value),
+                *((uint32_t *)value + 1), *((uint32_t *)value + 2),
+                *((uint32_t *)value + 3), *((uint32_t *)value + 4),
+                *((uint32_t *)value + 5));
+
+        if (key_item) {
+            cJSON_SetValuestring(key_item, nv_buffer);
+        } else {
+            cJSON_AddStringToObject(json, key, nv_buffer);
+        }
+        break;
     default:
         nv_log("unknown %d type\n", type);
         break;
@@ -335,6 +359,19 @@ bool nv_get(const char* file, char* key, char* value, uint32_t len,
                     *((double*)value + i) = array_json->valuedouble;
                 }
             }
+        }
+        break;
+    }
+    case NV_DATA_IP:
+    case NV_DATA_MAC: {
+        int* data = (int*)value;
+        if (type == NV_DATA_IP) {
+            sscanf(key_item->valuestring, "%d.%d.%d.%d", &data[0], &data[1],
+                   &data[2], &data[3]);
+        } else {
+
+            sscanf(key_item->valuestring, "%d-%d-%d-%d-%d-%d", &data[0],
+                   &data[1], &data[2], &data[3], &data[4], &data[5]);
         }
         break;
     }
