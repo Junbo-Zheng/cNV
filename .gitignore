@@ -3,6 +3,7 @@
 bin
 
 build
+cmake-build-debug/
 
 ~
 *.dep
