@@ -23,6 +23,8 @@ typedef enum {
     NV_DATA_INT_ARRAY,       ///< int array
     NV_DATA_FLOAT_ARRAY,     ///< float array
     NV_DATA_DOUBLE_ARRAY,    ///< double array
+    NV_DATA_IP,              ///< IP Address  (uint32_t array)
+    NV_DATA_MAC              ///< MAC Address (uint32_t array)
 } nv_data_type_t;
 ```
 - Supports Key-value pair
@@ -34,7 +36,7 @@ typedef enum {
 Clone the repo, install dependencies, and serve:
 
 ```shell
-sudo apt-get install -y cmake clang gcc
+sudo apt-get install -y cmake gcc git
 git clone --recursive  git@github.com:Junbo-Zheng/cNV.git
 ```
 
