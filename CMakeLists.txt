@@ -8,10 +8,11 @@ option(NV_DEBUG_LOG "nv debug log" ON)
 option(ENABLE_SANITIZER "Enables sanitizer" ON)
 option(NV_DEBUG_MOCK_DATA "nv debug mock data" ON)
 
+set(NV_DATA_BUFFER_SIZE "1024" CACHE STRING "")
+
 set(SOURCE nv/nv.c cJSON/cJSON.c cJSON/cJSON_Utils.c test.c)
-set(NV_DATA_BUFFER_SIZE
-    "1024"
-    CACHE STRING "")
+
+add_compile_options(-Wall -Werror -Wno-format -g)
 
 add_executable(${PROJECT_NAME} ${SOURCE})
 
@@ -29,8 +30,6 @@ endif()
 
 target_compile_definitions(
   ${PROJECT_NAME} PUBLIC -DCONFIG_NV_DATA_BUFFER_SIZE=${NV_DATA_BUFFER_SIZE})
-
-add_compile_options(-Wall -Wextra -Werror -Wno-format -g)
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/nv/")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/cJSON/")
