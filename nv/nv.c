@@ -23,6 +23,10 @@
 
 #include "cJSON.h"
 
+#ifndef UNUSED
+#define UNUSED(x) ((void)(x))
+#endif /* UNUSED */
+
 #ifndef CONFIG_NV_DATA_BUFFER_SIZE
 #define CONFIG_NV_DATA_BUFFER_SIZE 512    // TODO, 1024 Bytes enough?
 #endif /* CONFIG_NV_DATA_BUFFER_SIZE */
@@ -97,7 +101,7 @@ void nv_sync(const char* file, char* key, void* value, uint32_t len,
 
     if (access(file, F_OK) == 0) {
         if (nv_read(file, nv_buffer)) {
-            json = cJSON_Parse(nv_buffer);
+            json = cJSON_Parse((const char*)nv_buffer);
         } else {
             nv_log("nv sync, nv read %s fail, error %d %s\n", file, errno,
                    strerror(errno));
@@ -241,26 +245,26 @@ void nv_sync(const char* file, char* key, void* value, uint32_t len,
     }
     case NV_DATA_IP:
         memset(nv_buffer, 0, sizeof(nv_buffer));
-        sprintf(nv_buffer, "%d.%d.%d.%d", *((uint32_t *)value),
-                *((uint32_t *)value + 1), *((uint32_t *)value + 2),
-                *((uint32_t *)value + 3));
+        sprintf((char*)nv_buffer, "%d.%d.%d.%d", *((uint32_t*)value),
+                *((uint32_t*)value + 1), *((uint32_t*)value + 2),
+                *((uint32_t*)value + 3));
         if (key_item) {
-            cJSON_SetValuestring(key_item, nv_buffer);
+            cJSON_SetValuestring(key_item, (const char*)nv_buffer);
         } else {
-            cJSON_AddStringToObject(json, key, nv_buffer);
+            cJSON_AddStringToObject(json, key, (const char* const)nv_buffer);
         }
         break;
     case NV_DATA_MAC:
         memset(nv_buffer, 0, sizeof(nv_buffer));
-        sprintf(nv_buffer, "%d-%d-%d-%d-%d-%d", *((uint32_t *)value),
-                *((uint32_t *)value + 1), *((uint32_t *)value + 2),
-                *((uint32_t *)value + 3), *((uint32_t *)value + 4),
-                *((uint32_t *)value + 5));
+        sprintf((char*)nv_buffer, "%d-%d-%d-%d-%d-%d", *((uint32_t*)value),
+                *((uint32_t*)value + 1), *((uint32_t*)value + 2),
+                *((uint32_t*)value + 3), *((uint32_t*)value + 4),
+                *((uint32_t*)value + 5));
 
         if (key_item) {
-            cJSON_SetValuestring(key_item, nv_buffer);
+            cJSON_SetValuestring(key_item, (const char*)nv_buffer);
         } else {
-            cJSON_AddStringToObject(json, key, nv_buffer);
+            cJSON_AddStringToObject(json, key, (const char* const)nv_buffer);
         }
         break;
     default:
@@ -289,12 +293,14 @@ void nv_sync(const char* file, char* key, void* value, uint32_t len,
 bool nv_get(const char* file, char* key, char* value, uint32_t len,
             nv_data_type_t type)
 {
+    UNUSED(len);
+
     uint8_t nv_buffer[CONFIG_NV_DATA_BUFFER_SIZE] = { 0 };
     if (nv_read(file, nv_buffer) == false) {
         return false;
     }
 
-    cJSON* json = cJSON_Parse(nv_buffer);
+    cJSON* json = cJSON_Parse((const char*)nv_buffer);
     if (json == NULL) {
         nv_log("cJSON_Parse fail %s\n", cJSON_GetErrorPtr());
         return false;
@@ -345,7 +351,7 @@ bool nv_get(const char* file, char* key, char* value, uint32_t len,
     case NV_DATA_FLOAT_ARRAY:
     case NV_DATA_DOUBLE_ARRAY: {
         int size = cJSON_GetArraySize(key_item);
-        for (uint32_t i = 0; i < size; i++) {
+        for (int i = 0; i < size; i++) {
             cJSON* array_json = cJSON_GetArrayItem(key_item, i);
             if (array_json) {
                 if (type == NV_DATA_STRING_ARRAY) {
@@ -397,7 +403,7 @@ bool nv_delete(const char* file, char* key)
         return false;
     }
 
-    cJSON* json = cJSON_Parse(nv_buffer);
+    cJSON* json = cJSON_Parse((const char*)nv_buffer);
     if (json == NULL) {
         nv_log("cJSON_Parse fail %s\n", cJSON_GetErrorPtr());
         return false;
