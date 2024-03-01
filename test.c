@@ -56,7 +56,7 @@ typedef struct {
 
 static nv_t nv = { 0 };
 
-static void cjson_create_item(void)
+__attribute__((unused)) static void cjson_create_item(void)
 {
     cJSON* root = cJSON_CreateObject();
 
@@ -74,7 +74,7 @@ static void cjson_create_item(void)
     cJSON_Delete(root);
 }
 
-static void cjson_add_item(void)
+__attribute__((unused)) static void cjson_add_item(void)
 {
     char json[999]
         = { "{\"name\":\"ZhangSan\",\"age\":20,\"height\":180,\"weight\":60}" };
@@ -313,10 +313,10 @@ int main(void)
 
 //    nv_delete(CONFIG_NV_PATH, NV_KEY_NAME);
 
-    memset(score_str, 0, ARRAY_SIZE(score_str));
-    memset(score_int, 0, ARRAY_SIZE(score_int));
-    memset(score_float, 0, ARRAY_SIZE(score_float));
-    memset(score_double, 0, ARRAY_SIZE(score_double));
+    memset(score_str, 0, sizeof(score_str));
+    memset(score_int, 0, sizeof(score_int));
+    memset(score_float, 0, sizeof(score_float));
+    memset(score_double, 0, sizeof(score_double));
 
     /* clang-format off */
     nv_get(CONFIG_NV_PATH, NV_KEY_AGE,    (char*)&age,    sizeof(age),    NV_DATA_U8);
@@ -338,7 +338,7 @@ int main(void)
     nv_log("temp_double = %f\n", temp_double);
 
     char* score_buf[16] = {0};
-    for (int i = 0; i < ARRAY_SIZE(score_buf); i++) {
+    for (size_t i = 0; i < ARRAY_SIZE(score_buf); i++) {
         score_buf[i] = calloc(1, ARRAY_SIZE(score_buf) * sizeof(char));
     }
 
@@ -354,14 +354,14 @@ int main(void)
     nv_log("score float  %f %f\n", score_float[0], score_float[1]);
     nv_log("score double %f %f\n", score_double[0], score_double[1]);
 
-    for (int i = 0; i < ARRAY_SIZE(score_buf); i++) {
+    for (size_t i = 0; i < ARRAY_SIZE(score_buf); i++) {
         if (score_buf[i]) {
             free(score_buf[i]);
         }
     }
 
-    memset(ip,  0, ARRAY_SIZE(ip));
-    memset(mac, 0, ARRAY_SIZE(mac));
+    memset(ip,  0, sizeof(ip));
+    memset(mac, 0, sizeof(mac));
 
     /* clang-format off */
     nv_get(CONFIG_NV_PATH, NV_KEY_IP,  (char*)ip,  ARRAY_SIZE(ip),  NV_DATA_IP);
